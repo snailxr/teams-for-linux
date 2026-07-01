@@ -75,7 +75,13 @@ const allowedChannels = new Set([
   'get-sticker-list',
   'import-sticker-url',
   'delete-sticker',
-  
+
+  // Polish input (claude -p)
+  'polish-text',
+
+  // Conversation summary / draft reply (claude -p)
+  'conversation-assist',
+
   // Connection management
   'offline-retry',
 

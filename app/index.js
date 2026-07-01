@@ -11,6 +11,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const CustomBackground = require("./customBackground");
 const CustomStickers = require("./customStickers");
+const { registerPolishInput } = require("./polishInput");
+const { registerConversationSummary } = require("./conversationSummary");
 const { MQTTClient } = require("./mqtt");
 const MQTTMediaStatusService = require("./mqtt/mediaStatusService");
 const HomeAssistantDiscovery = require("./mqtt/homeAssistantDiscovery");
@@ -255,6 +257,12 @@ if (gotTheLock) {
   ipcMain.handle("get-config", async () => {
     return config;
   });
+
+  // Register the polish-text handler (compose-box draft → claude -p → rewrite)
+  registerPolishInput();
+
+  // Register the conversation-assist handler (summarize / draft reply via claude -p)
+  registerConversationSummary();
 
   // Initialize notification service IPC handlers
   notificationService.initialize();
