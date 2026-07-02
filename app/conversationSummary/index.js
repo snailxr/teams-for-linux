@@ -3,6 +3,10 @@ const { runClaude } = require("../_claudeRunner");
 
 const LOG_PREFIX = "[CONVERSATION_SUMMARY]";
 const MAX_INPUT_CHARS = 16000;
+// Long transcripts push `claude -p` past the runner's 30s default (an 11k-char
+// summary prompt measured ~34s), which surfaced as "Summarize failed". Give
+// assists a ceiling sized to MAX_INPUT_CHARS-length conversations.
+const CLAUDE_TIMEOUT_MS = 120000;
 const MODES = new Set(["summary", "reply"]);
 
 const HTML_RULE =
@@ -75,7 +79,9 @@ function registerConversationSummary() {
     if (totalChars > MAX_INPUT_CHARS) throw new Error("Conversation too long");
 
     try {
-      const out = await runClaude(buildPrompt(mode, messages, prompt));
+      const out = await runClaude(buildPrompt(mode, messages, prompt), {
+        timeoutMs: CLAUDE_TIMEOUT_MS,
+      });
       return mode === "reply" ? stripReplyPreamble(out) : out;
     } catch (err) {
       console.error(`${LOG_PREFIX} claude failed: ${err.message}`);
@@ -85,4 +91,9 @@ function registerConversationSummary() {
   console.info(`${LOG_PREFIX} Registered conversation-assist handler`);
 }
 
-module.exports = { registerConversationSummary, buildPrompt, stripReplyPreamble };
+module.exports = {
+  registerConversationSummary,
+  buildPrompt,
+  stripReplyPreamble,
+  CLAUDE_TIMEOUT_MS,
+};
