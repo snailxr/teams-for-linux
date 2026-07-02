@@ -81,6 +81,7 @@ function buildActionRequirement(action, language) {
 class PolishInput {
   #ipcRenderer = null;
   #observer = null;
+  #languages = ["English", "中文"];
 
   init(config, ipcRenderer) {
     if (!ipcRenderer) {
@@ -88,6 +89,11 @@ class PolishInput {
       return;
     }
     this.#ipcRenderer = ipcRenderer;
+    const langs = config?.polishTranslateLanguages;
+    if (Array.isArray(langs) && langs.length) {
+      this.#languages = langs.map((l) => String(l).trim()).filter(Boolean);
+    }
+    if (!this.#languages.length) this.#languages = ["English", "中文"];
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", () => this.#mount(), {
         once: true,
@@ -162,14 +168,14 @@ class PolishInput {
     btn.setAttribute("aria-label", "Polish message with Claude");
     btn.textContent = "✨"; // ✨
     btn.addEventListener("click", () => {
-      this.#polish(btn).catch((err) =>
+      this.#rewrite(btn, "").catch((err) =>
         console.error(`${LOG_PREFIX} Polish failed: ${err.message}`),
       );
     });
     return btn;
   }
 
-  async #polish(btn) {
+  async #rewrite(btn, requirement) {
     if (btn.disabled) return;
     const compose = this.#findFirst(COMPOSE_SELECTORS);
     if (!compose) {
@@ -177,18 +183,22 @@ class PolishInput {
       return;
     }
     const raw = compose.innerText ?? compose.textContent ?? "";
-    const { text, requirement } = parsePolishDirective(raw);
-    if (!text) {
+    const parsed = parsePolishDirective(raw);
+    if (!parsed.text) {
       this.#flashError(btn);
       return;
     }
+    const combined = [requirement, parsed.requirement]
+      .map((s) => String(s || "").trim())
+      .filter(Boolean)
+      .join("; ");
 
     this.#setBusy(btn, true);
     let polished;
     try {
       polished = await this.#ipcRenderer.invoke("polish-text", {
-        text,
-        requirement,
+        text: parsed.text,
+        requirement: combined,
       });
     } catch (err) {
       console.error(`${LOG_PREFIX} polish-text IPC failed: ${err.message}`);
