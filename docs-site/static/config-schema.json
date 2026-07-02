@@ -1,7 +1,7 @@
 {
   "$generatedBy": "scripts/generateConfigDocs.js",
   "source": "app/config/options.js",
-  "optionCount": 72,
+  "optionCount": 73,
   "options": [
     {
       "name": "appActiveCheckInterval",
@@ -990,6 +990,16 @@
           "description": "Keyboard shortcut to toggle the Quick Chat modal (e.g. CommandOrControl+Alt+Q); unset by default."
         }
       ]
+    },
+    {
+      "name": "polishTranslateLanguages",
+      "type": "array",
+      "default": [
+        "English",
+        "中文"
+      ],
+      "description": "Target languages offered in the compose-box Polish menu's Translate submenu.",
+      "applyMode": "restart"
     },
     {
       "name": "graphApi",

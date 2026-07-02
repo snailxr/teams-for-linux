@@ -902,6 +902,7 @@ module.exports = {
         describe:
           "Target languages offered in the compose-box Polish menu's Translate submenu.",
         type: "array",
+        applyMode: "restart",
       },
       graphApi: {
         default: {
