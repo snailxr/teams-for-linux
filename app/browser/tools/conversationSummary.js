@@ -14,7 +14,7 @@
  * Teams re-renders the compose toolbar on navigation.
  */
 
-const { composeReplace, htmlToPlain } = require("./_composeReplace");
+const { composeReplace, htmlToPlain, renderSafeHtml } = require("./_composeReplace");
 
 const LOG_PREFIX = "[CONVERSATION_SUMMARY]";
 const SUMMARIZE_BTN_ID = "tfl-summarize-button";
@@ -264,10 +264,11 @@ class ConversationSummary {
 
     const body = document.createElement("div");
     body.className = "tfl-summary-body";
-    // claude output is derived from untrusted chat messages — render it as plain
-    // text (never innerHTML) so crafted HTML can't inject into the Teams page.
-    // htmlToPlain keeps the list/line structure; the body CSS preserves newlines.
-    body.textContent = htmlToPlain(html);
+    // claude output is derived from untrusted chat messages, so it can never be
+    // trusted as HTML. renderSafeHtml escapes everything, then re-permits ONLY
+    // the bare, attribute-less safe tags (<b>, <i>, <ul>, <li>, <br>, ...) — so
+    // section headers render bold while crafted markup stays inert text.
+    body.innerHTML = renderSafeHtml(html);
 
     const footer = document.createElement("div");
     footer.className = "tfl-summary-footer";
@@ -345,8 +346,11 @@ class ConversationSummary {
         border-bottom: 1px solid rgba(127, 127, 127, 0.25);
       }
       #${POPUP_ID} .tfl-summary-body {
-        padding: 14px 18px; line-height: 1.5; white-space: pre-wrap;
+        padding: 14px 18px; line-height: 1.5;
       }
+      #${POPUP_ID} .tfl-summary-body b { font-weight: 600; }
+      #${POPUP_ID} .tfl-summary-body ul,
+      #${POPUP_ID} .tfl-summary-body ol { margin: 4px 0; padding-left: 20px; }
       #${POPUP_ID} .tfl-summary-footer {
         display: flex; gap: 8px; justify-content: flex-end;
         padding: 12px 18px; border-top: 1px solid rgba(127, 127, 127, 0.25);

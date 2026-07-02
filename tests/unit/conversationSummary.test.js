@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
-const { buildPrompt } = require('../../app/conversationSummary');
+const { buildPrompt, stripReplyPreamble } = require('../../app/conversationSummary');
 
 describe('buildPrompt', () => {
   const msgs = [
@@ -18,15 +18,57 @@ describe('buildPrompt', () => {
     assert.ok(!p.includes('User instruction'));
   });
 
+  it('summary mode requests bold section headers', () => {
+    const p = buildPrompt('summary', msgs, '');
+    assert.ok(p.includes('<b>Summary</b>'));
+    assert.ok(p.includes('<b>Decisions</b>'));
+    assert.ok(p.includes('<b>Action items / open questions</b>'));
+  });
+
   it('reply mode asks for a reply and weaves in the steer prompt', () => {
     const p = buildPrompt('reply', msgs, 'decline politely');
-    assert.ok(/draft a reply/i.test(p));
+    assert.ok(/reply/i.test(p));
     assert.ok(p.includes('User instruction: decline politely'));
+  });
+
+  it('reply mode forbids meta-preamble / lead-in commentary', () => {
+    const p = buildPrompt('reply', msgs, '');
+    assert.ok(/only the reply/i.test(p));
+    assert.ok(/no lead-in|no commentary/i.test(p));
   });
 
   it('falls back to Unknown author label', () => {
     const p = buildPrompt('summary', [{ author: '', text: 'hi' }], '');
     assert.ok(p.includes('Unknown: hi'));
+  });
+});
+
+describe('stripReplyPreamble', () => {
+  it('removes a leading "I\'ll draft a reply..." line', () => {
+    const out = stripReplyPreamble(
+      "I'll draft a natural reply to Chris's latest message.\n\nGlad to hear it!",
+    );
+    assert.strictEqual(out, 'Glad to hear it!');
+  });
+
+  it('removes common lead-ins (Sure, Here\'s, Of course)', () => {
+    assert.strictEqual(stripReplyPreamble("Sure! Here's a reply:\n\nOn my way."), 'On my way.');
+    assert.strictEqual(stripReplyPreamble('Of course.\nThanks, will do.'), 'Thanks, will do.');
+  });
+
+  it('handles a preamble emitted as an HTML line with <br>', () => {
+    const out = stripReplyPreamble("I'll write a reply:<br>\nSounds good to me.");
+    assert.strictEqual(out, 'Sounds good to me.');
+  });
+
+  it('leaves a genuine reply untouched', () => {
+    const reply = 'Friday works for me — see you then!';
+    assert.strictEqual(stripReplyPreamble(reply), reply);
+  });
+
+  it('does not strip a reply that merely starts with "I will"', () => {
+    const reply = 'I will send the report over by end of day.';
+    assert.strictEqual(stripReplyPreamble(reply), reply);
   });
 });
 

@@ -13,6 +13,30 @@ function htmlToPlain(html) {
     .trim();
 }
 
+// The only tags the summary/reply prompt is allowed to emit (see HTML_RULE in
+// conversationSummary/index.js). Everything else must be neutralised because the
+// text is ultimately derived from untrusted chat messages.
+const SAFE_TAGS = ["b", "i", "code", "ul", "ol", "li", "br"];
+
+// Sanitise model output for rendering as innerHTML: escape EVERYTHING first
+// (so any crafted markup — <img onerror>, <script>, attributes, event handlers —
+// becomes inert text), then re-permit only the bare, attribute-less safe tags
+// from the allowlist. This is a strict allowlist, not a blocklist: anything not
+// explicitly re-allowed stays escaped.
+function renderSafeHtml(html) {
+  const escaped = String(html)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  // Re-allow ONLY exact opening/closing tags with no attributes, e.g. &lt;b&gt;
+  // -> <b>, &lt;/li&gt; -> </li>, &lt;br&gt; / &lt;br/&gt; -> <br>.
+  const tag = SAFE_TAGS.join("|");
+  return escaped.replace(
+    new RegExp(`&lt;(/?)(${tag})\\s*/?&gt;`, "gi"),
+    (_m, slash, name) => `<${slash}${name.toLowerCase()}>`,
+  );
+}
+
 async function composeReplace(compose, html) {
   compose.focus();
   // Brief delay lets the focus event flush before we drive the editor.
@@ -47,4 +71,4 @@ async function composeReplace(compose, html) {
   compose.dispatchEvent(event);
 }
 
-module.exports = { composeReplace, htmlToPlain };
+module.exports = { composeReplace, htmlToPlain, renderSafeHtml };

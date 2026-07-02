@@ -2,7 +2,9 @@ const { execFile } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
-const DEFAULT_TIMEOUT_MS = 30000;
+// Real `claude -p` runs (CLI startup + generation) regularly take 30-60s+,
+// so a short timeout SIGTERMs calls that were about to succeed.
+const DEFAULT_TIMEOUT_MS = 120000;
 const MAX_BUFFER = 1024 * 1024;
 
 // Run `claude -p <prompt>` and resolve with trimmed stdout. Runs the binary
@@ -17,7 +19,7 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     PATH: `${localBin}${path.delimiter}${process.env.PATH || ""}`,
   };
   return new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       bin,
       ["-p", prompt],
       { env, timeout: timeoutMs, maxBuffer: MAX_BUFFER },
@@ -34,7 +36,10 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
         resolve(out);
       },
     );
+    // Close stdin right away: with a non-TTY pipe left open the claude CLI
+    // waits ~3s for piped input before it starts working.
+    child.stdin?.end();
   });
 }
 
-module.exports = { runClaude };
+module.exports = { runClaude, DEFAULT_TIMEOUT_MS };

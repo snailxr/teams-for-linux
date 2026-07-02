@@ -10,6 +10,18 @@ const HTML_RULE =
   "<ul>, <ol>, <li>, <br>. Do NOT use markdown, code fences, or any preamble — " +
   "return ONLY the HTML.";
 
+// Safety net for reply mode: strip a leading meta-preamble line the model may
+// still emit despite the prompt (e.g. "I'll draft a reply to Chris's latest
+// message."). Only removes a first line that is clearly commentary — a short
+// sentence starting with a first-person intent phrase and ending in a colon or
+// period — so real reply content is never touched.
+const REPLY_PREAMBLE =
+  /^\s*(?:<[^>]+>\s*)?(?:sure|okay|ok|here(?:'s| is)|i(?:'ll|'m| will| am| can)|let me|of course|certainly|draft(?:ing)?)\b[^\n]{0,120}?[:.](?:\s*<br\s*\/?>)?\s*(?:\r?\n)+/i;
+
+function stripReplyPreamble(text) {
+  return text.replace(REPLY_PREAMBLE, "").trim();
+}
+
 // Build the one-shot prompt for `claude -p`. `messages` is [{author,text}]
 // oldest-first; `prompt` is optional steering text typed in the compose box.
 function buildPrompt(mode, messages, prompt) {
@@ -20,15 +32,22 @@ function buildPrompt(mode, messages, prompt) {
   if (mode === "reply") {
     return (
       "You are helping the user reply in a Microsoft Teams chat. Read the " +
-      "conversation below (oldest first) and draft a reply to the latest " +
-      "message. Keep it natural, concise, and in the same language as the " +
-      `conversation. ${HTML_RULE}${steer}\n\nConversation:\n${transcript}`
+      "conversation below (oldest first) and write the reply the user should " +
+      "send to the latest message. Keep it natural, concise, and in the same " +
+      "language as the conversation. Output ONLY the reply message itself, " +
+      "exactly as it should appear in the chat box — no lead-in, no commentary " +
+      "about what you are doing (e.g. do NOT write \"I'll draft a reply...\"), " +
+      `and no surrounding quotes. ${HTML_RULE}${steer}\n\nConversation:\n${transcript}`
     );
   }
   return (
-    "Summarize the following Microsoft Teams conversation (oldest first). Give " +
-    "a concise summary of the key points, decisions, and any action items or " +
-    `open questions. ${HTML_RULE}${steer}\n\nConversation:\n${transcript}`
+    "Summarize the following Microsoft Teams conversation (oldest first). " +
+    "Structure the output under these three sections, each introduced by a " +
+    "bold header on its own line using the <b> tag: <b>Summary</b> (a concise " +
+    "summary of the key points), <b>Decisions</b> (decisions reached, or " +
+    "\"None\" if there were none), and <b>Action items / open questions</b> " +
+    "(any follow-ups or unanswered questions). Use <br> between sections and " +
+    `<ul>/<li> for lists. ${HTML_RULE}${steer}\n\nConversation:\n${transcript}`
   );
 }
 
@@ -56,7 +75,8 @@ function registerConversationSummary() {
     if (totalChars > MAX_INPUT_CHARS) throw new Error("Conversation too long");
 
     try {
-      return await runClaude(buildPrompt(mode, messages, prompt));
+      const out = await runClaude(buildPrompt(mode, messages, prompt));
+      return mode === "reply" ? stripReplyPreamble(out) : out;
     } catch (err) {
       console.error(`${LOG_PREFIX} claude failed: ${err.message}`);
       throw new Error("Assist failed", { cause: err });
@@ -65,4 +85,4 @@ function registerConversationSummary() {
   console.info(`${LOG_PREFIX} Registered conversation-assist handler`);
 }
 
-module.exports = { registerConversationSummary, buildPrompt };
+module.exports = { registerConversationSummary, buildPrompt, stripReplyPreamble };
