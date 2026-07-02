@@ -18,23 +18,59 @@ function htmlToPlain(html) {
 // text is ultimately derived from untrusted chat messages.
 const SAFE_TAGS = ["b", "i", "code", "ul", "ol", "li", "br"];
 
-// Sanitise model output for rendering as innerHTML: escape EVERYTHING first
-// (so any crafted markup — <img onerror>, <script>, attributes, event handlers —
-// becomes inert text), then re-permit only the bare, attribute-less safe tags
-// from the allowlist. This is a strict allowlist, not a blocklist: anything not
-// explicitly re-allowed stays escaped.
-function renderSafeHtml(html) {
-  const escaped = String(html)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  // Re-allow ONLY exact opening/closing tags with no attributes, e.g. &lt;b&gt;
-  // -> <b>, &lt;/li&gt; -> </li>, &lt;br&gt; / &lt;br/&gt; -> <br>.
-  const tag = SAFE_TAGS.join("|");
-  return escaped.replace(
-    new RegExp(`&lt;(/?)(${tag})\\s*/?&gt;`, "gi"),
-    (_m, slash, name) => `<${slash}${name.toLowerCase()}>`,
-  );
+// Decode the handful of entities the model plausibly emits in text, so
+// "&amp;" displays as "&". Order matters: "&amp;" is decoded LAST so it cannot
+// manufacture a new entity ("&amp;lt;" -> "&lt;", correctly, not "<").
+function decodeBasicEntities(s) {
+  return s
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&");
+}
+
+// Render model-output HTML into `parent` WITHOUT touching a Trusted Types
+// sink: Teams enforces `require-trusted-types-for 'script'`, so assigning
+// innerHTML (or DOMParser.parseFromString) throws a TypeError. Nodes are built
+// programmatically instead — ONLY the bare, attribute-less allowlisted tags
+// become elements; everything else (unknown tags, tags carrying attributes)
+// lands in text nodes, which the DOM renders inert. Strict allowlist, not a
+// blocklist. Uses parent.ownerDocument so unit tests can pass a fake document.
+function appendSafeHtml(parent, html) {
+  const doc = parent.ownerDocument;
+  const token = new RegExp(`<(/?)(${SAFE_TAGS.join("|")})\\s*/?>`, "gi");
+  const stack = [parent];
+  const top = () => stack[stack.length - 1];
+  const addText = (s) => {
+    if (s) top().appendChild(doc.createTextNode(decodeBasicEntities(s)));
+  };
+  const src = String(html);
+  let last = 0;
+  for (const m of src.matchAll(token)) {
+    addText(src.slice(last, m.index));
+    last = m.index + m[0].length;
+    const closing = m[1] === "/";
+    const name = m[2].toLowerCase();
+    if (name === "br") {
+      if (!closing) top().appendChild(doc.createElement("br"));
+    } else if (closing) {
+      // Pop to the matching open element; ignore unmatched closers.
+      for (let i = stack.length - 1; i > 0; i--) {
+        if (stack[i].tagName?.toLowerCase() === name) {
+          stack.length = i;
+          break;
+        }
+      }
+    } else {
+      const el = doc.createElement(name);
+      top().appendChild(el);
+      stack.push(el);
+    }
+  }
+  addText(src.slice(last));
 }
 
 async function composeReplace(compose, html) {
@@ -71,4 +107,4 @@ async function composeReplace(compose, html) {
   compose.dispatchEvent(event);
 }
 
-module.exports = { composeReplace, htmlToPlain, renderSafeHtml };
+module.exports = { composeReplace, htmlToPlain, appendSafeHtml };

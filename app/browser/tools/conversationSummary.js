@@ -14,7 +14,7 @@
  * Teams re-renders the compose toolbar on navigation.
  */
 
-const { composeReplace, htmlToPlain, renderSafeHtml } = require("./_composeReplace");
+const { composeReplace, htmlToPlain, appendSafeHtml } = require("./_composeReplace");
 
 const LOG_PREFIX = "[CONVERSATION_SUMMARY]";
 const SUMMARIZE_BTN_ID = "tfl-summarize-button";
@@ -277,10 +277,12 @@ class ConversationSummary {
     const body = document.createElement("div");
     body.className = "tfl-summary-body";
     // claude output is derived from untrusted chat messages, so it can never be
-    // trusted as HTML. renderSafeHtml escapes everything, then re-permits ONLY
-    // the bare, attribute-less safe tags (<b>, <i>, <ul>, <li>, <br>, ...) — so
-    // section headers render bold while crafted markup stays inert text.
-    body.innerHTML = renderSafeHtml(html);
+    // trusted as HTML — and Teams' Trusted Types CSP makes innerHTML assignment
+    // throw anyway (the original cause of "Summarize failed" with no panel).
+    // appendSafeHtml builds nodes programmatically: only the bare allowlisted
+    // tags (<b>, <ul>, <li>, <br>, ...) become elements; everything else stays
+    // inert text.
+    appendSafeHtml(body, html);
 
     const footer = document.createElement("div");
     footer.className = "tfl-summary-footer";
