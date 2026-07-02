@@ -69,6 +69,17 @@ const ACTION_REQUIREMENTS = {
   shorter: "make it as concise as possible while keeping the meaning",
 };
 
+// Merge an action requirement (from a menu click) with any `polish:` directive
+// requirement parsed from the draft, dropping empties and joining with "; ".
+// Exported for unit testing. An empty action requirement yields exactly the
+// directive requirement, so the plain-polish (✨) path is unchanged.
+function combineRequirements(actionRequirement, directiveRequirement) {
+  return [actionRequirement, directiveRequirement]
+    .map((s) => String(s || "").trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
 function buildActionRequirement(action, language) {
   if (action === "translate") {
     const lang = String(language || "").trim();
@@ -335,10 +346,7 @@ class PolishInput {
       this.#flashError(btn);
       return;
     }
-    const combined = [requirement, parsed.requirement]
-      .map((s) => String(s || "").trim())
-      .filter(Boolean)
-      .join("; ");
+    const combined = combineRequirements(requirement, parsed.requirement);
 
     this.#setBusy(btn, true);
     let polished;
@@ -371,3 +379,4 @@ class PolishInput {
 module.exports = new PolishInput();
 module.exports.parsePolishDirective = parsePolishDirective;
 module.exports.buildActionRequirement = buildActionRequirement;
+module.exports.combineRequirements = combineRequirements;

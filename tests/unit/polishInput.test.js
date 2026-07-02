@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
-const { parsePolishDirective, buildActionRequirement } = require('../../app/browser/tools/polishInput');
+const { parsePolishDirective, buildActionRequirement, combineRequirements } = require('../../app/browser/tools/polishInput');
 
 describe('parsePolishDirective', () => {
   it('returns the whole text and empty requirement when there is no directive', () => {
@@ -70,5 +70,30 @@ describe('buildActionRequirement', () => {
 
   it('throws on an unknown action', () => {
     assert.throws(() => buildActionRequirement('bogus'), /Unknown action/);
+  });
+});
+
+describe('combineRequirements', () => {
+  it('returns the directive requirement unchanged when the action requirement is empty (plain polish)', () => {
+    assert.strictEqual(combineRequirements('', 'make it formal'), 'make it formal');
+  });
+
+  it('returns the action requirement alone when there is no directive', () => {
+    assert.strictEqual(combineRequirements('translate into 中文', ''), 'translate into 中文');
+  });
+
+  it('joins action and directive requirements with "; " in that order', () => {
+    assert.strictEqual(
+      combineRequirements('translate into 中文', 'keep it short'),
+      'translate into 中文; keep it short',
+    );
+  });
+
+  it('yields an empty string when both are empty', () => {
+    assert.strictEqual(combineRequirements('', ''), '');
+  });
+
+  it('trims each part and drops blank ones', () => {
+    assert.strictEqual(combineRequirements('  formal  ', '   '), 'formal');
   });
 });
