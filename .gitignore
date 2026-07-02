@@ -14,4 +14,4 @@ debian-changelog
 # Playwright test results
 test-results/
 playwright-report/
-.auth/
+.auth/.superpowers/

@@ -24,10 +24,10 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
       bin,
       ["-p", prompt],
       { env, timeout: timeoutMs, maxBuffer: MAX_BUFFER },
-      (err, stdout, stderr) => {
+      (err, stdout) => {
         const durationMs = Date.now() - startedAt;
         if (err) {
-          // Failure mechanics only — never the prompt text (PII).
+          // Failure mechanics only — never the prompt text or stderr (PII).
           console.error("[CLAUDE_RUNNER] claude -p failed", {
             durationMs,
             timeoutMs,
@@ -36,11 +36,6 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
             signal: err.signal,
             killed: err.killed,
           });
-          // DEBUG-ONLY: Remove before merge — CLI stderr may contain arbitrary text.
-          const errText = String(stderr || "")
-            .trim()
-            .slice(0, 300);
-          if (errText) console.error(`[CLAUDE_RUNNER] stderr: ${errText}`);
           reject(err);
           return;
         }
