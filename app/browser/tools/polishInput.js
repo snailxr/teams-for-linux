@@ -163,8 +163,8 @@ class PolishInput {
       }
       #${CARET_ID}:hover { background: rgba(127,127,127,0.18); }
       #${MENU_ID} {
-        position: absolute; bottom: 100%; right: 0; margin-bottom: 4px;
-        background: #2b2b2b; color: #fff; border: 1px solid rgba(127,127,127,0.35);
+        position: fixed; background: #2b2b2b; color: #fff;
+        border: 1px solid rgba(127,127,127,0.35);
         border-radius: 6px; padding: 4px; min-width: 160px; z-index: 2147483647;
         box-shadow: 0 4px 16px rgba(0,0,0,0.35);
       }
@@ -293,6 +293,7 @@ class PolishInput {
 
   #openMenu(menu) {
     menu.hidden = false;
+    this.#positionMenu(menu);
     this.#onDocClick = (e) => {
       if (!document.getElementById(GROUP_ID)?.contains(e.target)) {
         this.#closeMenu();
@@ -303,6 +304,27 @@ class PolishInput {
     };
     document.addEventListener("click", this.#onDocClick, true);
     document.addEventListener("keydown", this.#onKeydown, true);
+  }
+
+  // Place the (now-visible) fixed-position menu just above the caret, aligned to
+  // its right edge — the same anchor the old `bottom:100%; right:0` produced, but
+  // as viewport coordinates so no ancestor `overflow: hidden` on the Teams
+  // compose toolbar can clip it. Flips below the caret if there isn't room above,
+  // and clamps into the viewport so it never renders off-screen.
+  #positionMenu(menu) {
+    const caret = document.getElementById(CARET_ID);
+    if (!caret) return;
+    const c = caret.getBoundingClientRect();
+    const m = menu.getBoundingClientRect();
+    const gap = 4;
+    let top = c.top - m.height - gap; // above the caret
+    if (top < 0) top = c.bottom + gap; // not enough room above -> below
+    let left = c.right - m.width; // right-align to the caret
+    if (left < 0) left = 0;
+    const maxLeft = window.innerWidth - m.width;
+    if (left > maxLeft) left = Math.max(0, maxLeft);
+    menu.style.top = `${Math.round(top)}px`;
+    menu.style.left = `${Math.round(left)}px`;
   }
 
   #closeMenu() {
