@@ -179,14 +179,24 @@ class ConversationSummary {
 
   #scrape() {
     let items = [];
+    let matchedSelector = "";
     for (const sel of MESSAGE_ITEM_SELECTORS) {
       const found = document.querySelectorAll(sel);
       if (found.length) {
         items = Array.from(found);
+        matchedSelector = sel;
         break;
       }
     }
-    return extractMessages(items, MAX_MESSAGES);
+    const messages = extractMessages(items, MAX_MESSAGES);
+    // Shape only — counts and sizes, never message content (PII).
+    console.debug(`${LOG_PREFIX} scraped`, {
+      matchedSelector,
+      itemCount: items.length,
+      messageCount: messages.length,
+      totalChars: messages.reduce((n, m) => n + m.text.length, 0),
+    });
+    return messages;
   }
 
   async #summarize() {

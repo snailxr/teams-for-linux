@@ -60,7 +60,10 @@ function buildPrompt(mode, messages, prompt) {
 function registerConversationSummary() {
   ipcMain.handle("conversation-assist", async (_event, payload) => {
     const mode = payload?.mode;
-    if (!MODES.has(mode)) throw new Error("Invalid mode");
+    if (!MODES.has(mode)) {
+      console.warn(`${LOG_PREFIX} rejected: invalid mode`);
+      throw new Error("Invalid mode");
+    }
 
     const raw = Array.isArray(payload?.messages) ? payload.messages : [];
     const prompt =
@@ -73,10 +76,28 @@ function registerConversationSummary() {
       }))
       .filter((m) => m.text);
 
-    if (!messages.length) throw new Error("No messages to process");
+    if (!messages.length) {
+      console.warn(`${LOG_PREFIX} rejected: no usable messages`, {
+        rawCount: raw.length,
+      });
+      throw new Error("No messages to process");
+    }
 
     const totalChars = messages.reduce((n, m) => n + m.text.length, 0);
-    if (totalChars > MAX_INPUT_CHARS) throw new Error("Conversation too long");
+    // Request shape only — counts and sizes, never message content (PII).
+    console.info(`${LOG_PREFIX} assist request`, {
+      mode,
+      count: messages.length,
+      totalChars,
+      steerChars: prompt.length,
+    });
+    if (totalChars > MAX_INPUT_CHARS) {
+      console.warn(`${LOG_PREFIX} rejected: conversation too long`, {
+        totalChars,
+        max: MAX_INPUT_CHARS,
+      });
+      throw new Error("Conversation too long");
+    }
 
     try {
       const out = await runClaude(buildPrompt(mode, messages, prompt), {

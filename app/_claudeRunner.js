@@ -18,21 +18,45 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     ...process.env,
     PATH: `${localBin}${path.delimiter}${process.env.PATH || ""}`,
   };
+  const startedAt = Date.now();
   return new Promise((resolve, reject) => {
     const child = execFile(
       bin,
       ["-p", prompt],
       { env, timeout: timeoutMs, maxBuffer: MAX_BUFFER },
-      (err, stdout) => {
+      (err, stdout, stderr) => {
+        const durationMs = Date.now() - startedAt;
         if (err) {
+          // Failure mechanics only — never the prompt text (PII).
+          console.error("[CLAUDE_RUNNER] claude -p failed", {
+            durationMs,
+            timeoutMs,
+            promptChars: prompt.length,
+            code: err.code,
+            signal: err.signal,
+            killed: err.killed,
+          });
+          // DEBUG-ONLY: Remove before merge — CLI stderr may contain arbitrary text.
+          const errText = String(stderr || "")
+            .trim()
+            .slice(0, 300);
+          if (errText) console.error(`[CLAUDE_RUNNER] stderr: ${errText}`);
           reject(err);
           return;
         }
         const out = String(stdout).trim();
         if (!out) {
+          console.error("[CLAUDE_RUNNER] claude returned empty output", {
+            durationMs,
+            promptChars: prompt.length,
+          });
           reject(new Error("claude returned empty output"));
           return;
         }
+        console.debug("[CLAUDE_RUNNER] claude -p ok", {
+          durationMs,
+          outputChars: out.length,
+        });
         resolve(out);
       },
     );
