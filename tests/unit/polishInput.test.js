@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
-const { parsePolishDirective } = require('../../app/browser/tools/polishInput');
+const { parsePolishDirective, buildActionRequirement } = require('../../app/browser/tools/polishInput');
 
 describe('parsePolishDirective', () => {
   it('returns the whole text and empty requirement when there is no directive', () => {
@@ -28,5 +28,47 @@ describe('parsePolishDirective', () => {
     const r = parsePolishDirective('polish: a\npolish: b');
     assert.strictEqual(r.text, '');
     assert.strictEqual(r.requirement, 'a; b');
+  });
+});
+
+describe('buildActionRequirement', () => {
+  it('returns empty string for plain polish', () => {
+    assert.strictEqual(buildActionRequirement('polish'), '');
+  });
+
+  it('returns the formal instruction', () => {
+    assert.strictEqual(
+      buildActionRequirement('formal'),
+      'rewrite in a formal, professional tone',
+    );
+  });
+
+  it('returns the friendly instruction', () => {
+    assert.strictEqual(
+      buildActionRequirement('friendly'),
+      'rewrite in a warm, friendly tone',
+    );
+  });
+
+  it('returns the shorter instruction', () => {
+    assert.strictEqual(
+      buildActionRequirement('shorter'),
+      'make it as concise as possible while keeping the meaning',
+    );
+  });
+
+  it('interpolates the language for translate', () => {
+    assert.strictEqual(
+      buildActionRequirement('translate', '中文'),
+      'translate into 中文',
+    );
+  });
+
+  it('throws when translate has no language', () => {
+    assert.throws(() => buildActionRequirement('translate'), /language/);
+  });
+
+  it('throws on an unknown action', () => {
+    assert.throws(() => buildActionRequirement('bogus'), /Unknown action/);
   });
 });

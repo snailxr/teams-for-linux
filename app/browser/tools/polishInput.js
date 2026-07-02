@@ -56,6 +56,28 @@ function parsePolishDirective(raw) {
   return { text: kept.join("\n").trim(), requirement: reqs.join("; ") };
 }
 
+// Map a menu action to the `requirement` string passed to the polish-text IPC
+// handler (which appends it as an extra rewrite instruction). Exported for
+// unit testing. "polish" yields "" (plain polish, no extra instruction).
+const ACTION_REQUIREMENTS = {
+  polish: "",
+  formal: "rewrite in a formal, professional tone",
+  friendly: "rewrite in a warm, friendly tone",
+  shorter: "make it as concise as possible while keeping the meaning",
+};
+
+function buildActionRequirement(action, language) {
+  if (action === "translate") {
+    const lang = String(language || "").trim();
+    if (!lang) throw new Error("translate requires a language");
+    return `translate into ${lang}`;
+  }
+  if (!(action in ACTION_REQUIREMENTS)) {
+    throw new Error(`Unknown action: ${action}`);
+  }
+  return ACTION_REQUIREMENTS[action];
+}
+
 class PolishInput {
   #ipcRenderer = null;
   #observer = null;
@@ -191,3 +213,4 @@ class PolishInput {
 
 module.exports = new PolishInput();
 module.exports.parsePolishDirective = parsePolishDirective;
+module.exports.buildActionRequirement = buildActionRequirement;
