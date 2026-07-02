@@ -897,6 +897,12 @@ module.exports = {
         },
         applyMode: "restart",
       },
+      polishTranslateLanguages: {
+        default: ["English", "中文"],
+        describe:
+          "Target languages offered in the compose-box Polish menu's Translate submenu.",
+        type: "array",
+      },
       graphApi: {
         default: {
           enabled: false,

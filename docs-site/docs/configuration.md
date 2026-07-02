@@ -96,6 +96,7 @@ Each option's **Apply** mode (whether a change takes effect immediately or after
 | `url` | `string` | `"https://teams.cloud.microsoft"` | Microsoft Teams URL |
 | `appTitle` | `string` | `"Microsoft Teams"` | Text to be suffixed with page title |
 | `partition` | `string` | `"persist:teams-4-linux"` | BrowserWindow webpreferences partition |
+| `polishTranslateLanguages` | `array` | `["English", "中文"]` | Target languages offered in the compose-box Polish menu's Translate submenu. |
 
 ### Window & UI Behavior
 
