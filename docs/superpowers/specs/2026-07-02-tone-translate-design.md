@@ -91,3 +91,14 @@ existing `polish-text` IPC handler by varying the `requirement` string.
 - Free-text "translate into arbitrary language" input (config list covers it).
 - Keyboard shortcuts for individual actions.
 - Changes to `conversationSummary` or the main-process prompt.
+
+## Implementation outcome (post-live-testing addendum)
+
+Shipped as designed, with two deviations discovered in live testing:
+
+- **Menu positioning:** `position: absolute` inside the compose toolbar is
+  clipped by Teams' overflow — the menu is `position: fixed` at the caret's
+  viewport coordinates instead (flip-below + viewport clamp).
+- The plan's "no main-process changes" held for tone/translate, but live
+  debugging of the sibling summarize feature surfaced a Teams **Trusted
+  Types** CSP constraint documented in `app/conversationSummary/README.md`.
