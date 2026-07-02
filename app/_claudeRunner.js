@@ -53,7 +53,9 @@ function runClaude(prompt, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
           reject(new Error("claude returned empty output"));
           return;
         }
-        console.debug("[CLAUDE_RUNNER] claude -p ok", {
+        // info, not debug: electron-log console level may filter debug, and a
+        // missing success line is indistinguishable from a hang while debugging.
+        console.info("[CLAUDE_RUNNER] claude -p ok", {
           durationMs,
           outputChars: out.length,
         });

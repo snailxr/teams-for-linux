@@ -216,7 +216,9 @@ class ConversationSummary {
       });
       this.#showPopup(html);
     } catch (err) {
-      console.error(`${LOG_PREFIX} summarize failed: ${err.message}`);
+      // Name + stack pinpoint the throwing layer (IPC vs popup render); the
+      // message never contains chat content.
+      console.error(`${LOG_PREFIX} summarize failed: ${err.message}`, err.stack);
       this.#toast("Summarize failed");
     } finally {
       this.#setBusy(btn, false);
