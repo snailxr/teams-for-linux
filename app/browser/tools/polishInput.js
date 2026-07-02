@@ -19,6 +19,9 @@ const { composeReplace } = require("./_composeReplace");
 const LOG_PREFIX = "[POLISH_INPUT]";
 const BUTTON_ID = "tfl-polish-button";
 const STYLES_ID = "tfl-polish-styles";
+const GROUP_ID = "tfl-polish-group";
+const CARET_ID = "tfl-polish-caret";
+const MENU_ID = "tfl-polish-menu";
 
 // Most-specific first; mirrors the customStickers compose cascade.
 const COMPOSE_SELECTORS = [
@@ -82,6 +85,8 @@ class PolishInput {
   #ipcRenderer = null;
   #observer = null;
   #languages = ["English", "中文"];
+  #onDocClick = null;
+  #onKeydown = null;
 
   init(config, ipcRenderer) {
     if (!ipcRenderer) {
@@ -139,6 +144,28 @@ class PolishInput {
       #${BUTTON_ID}:hover { background: rgba(127, 127, 127, 0.18); }
       #${BUTTON_ID}:disabled { opacity: 0.6; cursor: wait; }
       #${BUTTON_ID}.tfl-polish-error { color: #c44; }
+      #${GROUP_ID} { display: inline-flex; align-items: center; position: relative; }
+      #${CARET_ID} {
+        background: transparent; border: none; cursor: pointer;
+        font-size: 12px; padding: 4px 4px; margin: 0 2px 0 -2px;
+        color: inherit; border-radius: 4px; line-height: 1;
+      }
+      #${CARET_ID}:hover { background: rgba(127,127,127,0.18); }
+      #${MENU_ID} {
+        position: absolute; bottom: 100%; right: 0; margin-bottom: 4px;
+        background: #2b2b2b; color: #fff; border: 1px solid rgba(127,127,127,0.35);
+        border-radius: 6px; padding: 4px; min-width: 160px; z-index: 2147483647;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      }
+      #${MENU_ID}[hidden] { display: none; }
+      #${MENU_ID} .tfl-polish-item {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        background: transparent; border: none; color: inherit; cursor: pointer;
+        font-size: 13px; text-align: left; padding: 6px 8px; border-radius: 4px;
+      }
+      #${MENU_ID} .tfl-polish-item:hover { background: rgba(127,127,127,0.25); }
+      #${MENU_ID} .tfl-polish-submenu { position: relative; }
+      #${MENU_ID} .tfl-polish-sublist { padding-left: 12px; }
     `;
     document.head.appendChild(style);
   }
@@ -152,12 +179,132 @@ class PolishInput {
   }
 
   #ensureButton() {
-    const existing = document.getElementById(BUTTON_ID);
+    const existing = document.getElementById(GROUP_ID);
     if (existing?.isConnected) return;
     const sendBtn = this.#findFirst(SEND_SELECTORS);
     if (!sendBtn?.parentElement) return;
+    const group = this.#createGroup();
+    sendBtn.parentElement.insertBefore(group, sendBtn);
+  }
+
+  #createGroup() {
+    const group = document.createElement("div");
+    group.id = GROUP_ID;
     const btn = this.#createButton();
-    sendBtn.parentElement.insertBefore(btn, sendBtn);
+    const caret = this.#createCaret();
+    const menu = this.#buildMenu();
+    group.append(btn, caret, menu);
+    return group;
+  }
+
+  #createCaret() {
+    const caret = document.createElement("button");
+    caret.id = CARET_ID;
+    caret.type = "button";
+    caret.title = "More rewrite options";
+    caret.setAttribute("aria-label", "More rewrite options");
+    caret.setAttribute("aria-haspopup", "true");
+    caret.textContent = "▾";
+    caret.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.#toggleMenu();
+    });
+    return caret;
+  }
+
+  #buildMenu() {
+    const menu = document.createElement("div");
+    menu.id = MENU_ID;
+    menu.setAttribute("role", "menu");
+    menu.hidden = true;
+
+    const actions = [
+      { label: "🍩 Formal", action: "formal" },
+      { label: "😊 Friendly", action: "friendly" },
+      { label: "✂ Shorter", action: "shorter" },
+    ];
+    for (const a of actions) {
+      menu.appendChild(
+        this.#menuItem(a.label, () =>
+          this.#runAction(buildActionRequirement(a.action)),
+        ),
+      );
+    }
+
+    const sub = document.createElement("div");
+    sub.className = "tfl-polish-submenu";
+    const subLabel = document.createElement("div");
+    subLabel.className = "tfl-polish-item";
+    subLabel.textContent = "文 Translate";
+    sub.appendChild(subLabel);
+    const subList = document.createElement("div");
+    subList.className = "tfl-polish-sublist";
+    for (const lang of this.#languages) {
+      subList.appendChild(
+        this.#menuItem(lang, () =>
+          this.#runAction(buildActionRequirement("translate", lang)),
+        ),
+      );
+    }
+    sub.appendChild(subList);
+    menu.appendChild(sub);
+    return menu;
+  }
+
+  #menuItem(label, onClick) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "tfl-polish-item";
+    item.setAttribute("role", "menuitem");
+    item.textContent = label;
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.#closeMenu();
+      onClick();
+    });
+    return item;
+  }
+
+  #runAction(requirement) {
+    const btn = document.getElementById(BUTTON_ID);
+    if (!btn) return;
+    this.#rewrite(btn, requirement).catch((err) =>
+      console.error(`${LOG_PREFIX} Rewrite failed: ${err.message}`),
+    );
+  }
+
+  #toggleMenu() {
+    const menu = document.getElementById(MENU_ID);
+    if (!menu) return;
+    if (menu.hidden) this.#openMenu(menu);
+    else this.#closeMenu();
+  }
+
+  #openMenu(menu) {
+    menu.hidden = false;
+    this.#onDocClick = (e) => {
+      if (!document.getElementById(GROUP_ID)?.contains(e.target)) {
+        this.#closeMenu();
+      }
+    };
+    this.#onKeydown = (e) => {
+      if (e.key === "Escape") this.#closeMenu();
+    };
+    document.addEventListener("click", this.#onDocClick, true);
+    document.addEventListener("keydown", this.#onKeydown, true);
+  }
+
+  #closeMenu() {
+    const menu = document.getElementById(MENU_ID);
+    if (menu) menu.hidden = true;
+    if (this.#onDocClick) {
+      document.removeEventListener("click", this.#onDocClick, true);
+      this.#onDocClick = null;
+    }
+    if (this.#onKeydown) {
+      document.removeEventListener("keydown", this.#onKeydown, true);
+      this.#onKeydown = null;
+    }
   }
 
   #createButton() {
