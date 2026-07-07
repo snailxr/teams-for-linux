@@ -73,6 +73,47 @@ function appendSafeHtml(parent, html) {
   addText(src.slice(last));
 }
 
+// Match a compose-toolbar button whose accessible name is the Send/Post action.
+// Chats expose "Send"; channel composers expose "Post". Anchored at the start
+// and \b-bounded so "Posts" (a channel nav tab) and "Bold"/"Attach"/etc. never
+// match. Exported for unit testing.
+function isSendOrPostButton(el) {
+  const name = (
+    el?.getAttribute?.("aria-label") ||
+    el?.title ||
+    el?.textContent ||
+    ""
+  ).trim();
+  return /^(send|post)\b/i.test(name);
+}
+
+// Find the button to insert custom compose buttons before. Fast path: the chat
+// Send button, matched document-wide by sendSelectors. Fallback for channel
+// composers (button labelled "Post", matching none of those selectors): search
+// buttons scoped to the compose box's own ancestors, closest first, so an
+// unrelated "Posts" nav tab elsewhere in the document is never picked. The walk
+// stops at the first ancestor whose subtree holds a Send/Post button — the
+// composer footer — well short of <body>. Returns null if none found.
+function findSendAnchor(sendSelectors, composeSelectors) {
+  for (const sel of sendSelectors) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  let compose = null;
+  for (const sel of composeSelectors) {
+    compose = document.querySelector(sel);
+    if (compose) break;
+  }
+  let node = compose?.parentElement;
+  for (let i = 0; node && i < 8; i++, node = node.parentElement) {
+    const btn = Array.from(node.querySelectorAll("button")).find(
+      isSendOrPostButton,
+    );
+    if (btn) return btn;
+  }
+  return null;
+}
+
 async function composeReplace(compose, html) {
   compose.focus();
   // Brief delay lets the focus event flush before we drive the editor.
@@ -107,4 +148,10 @@ async function composeReplace(compose, html) {
   compose.dispatchEvent(event);
 }
 
-module.exports = { composeReplace, htmlToPlain, appendSafeHtml };
+module.exports = {
+  composeReplace,
+  htmlToPlain,
+  appendSafeHtml,
+  findSendAnchor,
+  isSendOrPostButton,
+};

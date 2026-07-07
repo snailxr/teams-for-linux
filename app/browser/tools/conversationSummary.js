@@ -14,7 +14,7 @@
  * Teams re-renders the compose toolbar on navigation.
  */
 
-const { composeReplace, htmlToPlain, appendSafeHtml } = require("./_composeReplace");
+const { composeReplace, htmlToPlain, appendSafeHtml, findSendAnchor } = require("./_composeReplace");
 
 const LOG_PREFIX = "[CONVERSATION_SUMMARY]";
 const SUMMARIZE_BTN_ID = "tfl-summarize-button";
@@ -144,7 +144,7 @@ class ConversationSummary {
   }
 
   #ensureButtons() {
-    const sendBtn = this.#findFirst(SEND_SELECTORS);
+    const sendBtn = findSendAnchor(SEND_SELECTORS, COMPOSE_SELECTORS);
     if (!sendBtn?.parentElement) return;
     if (!document.getElementById(SUMMARIZE_BTN_ID)?.isConnected) {
       const b = this.#createButton(SUMMARIZE_BTN_ID, "📋", "Summarize conversation", () => this.#summarize());
@@ -165,8 +165,12 @@ class ConversationSummary {
     btn.setAttribute("aria-label", title);
     btn.textContent = label;
     btn.dataset.label = label;
-    btn.addEventListener("click", () => {
-      onClick().catch((e) => console.error(`${LOG_PREFIX} ${e.message}`));
+    btn.addEventListener("click", (e) => {
+      // In a channel composer these buttons sit in the Post command bar;
+      // without this a bubbled click reaches Teams' post handler and sends.
+      e.preventDefault();
+      e.stopPropagation();
+      onClick().catch((err) => console.error(`${LOG_PREFIX} ${err.message}`));
     });
     return btn;
   }

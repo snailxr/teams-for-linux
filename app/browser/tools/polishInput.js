@@ -14,7 +14,7 @@
  * would not sync CKEditor's model).
  */
 
-const { composeReplace } = require("./_composeReplace");
+const { composeReplace, findSendAnchor } = require("./_composeReplace");
 
 const LOG_PREFIX = "[POLISH_INPUT]";
 const BUTTON_ID = "tfl-polish-button";
@@ -192,7 +192,7 @@ class PolishInput {
   #ensureButton() {
     const existing = document.getElementById(GROUP_ID);
     if (existing?.isConnected) return;
-    const sendBtn = this.#findFirst(SEND_SELECTORS);
+    const sendBtn = findSendAnchor(SEND_SELECTORS, COMPOSE_SELECTORS);
     if (!sendBtn?.parentElement) return;
     const group = this.#createGroup();
     sendBtn.parentElement.insertBefore(group, sendBtn);
@@ -217,6 +217,7 @@ class PolishInput {
     caret.setAttribute("aria-haspopup", "true");
     caret.textContent = "▾";
     caret.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       this.#toggleMenu();
     });
@@ -347,7 +348,11 @@ class PolishInput {
     btn.title = "Polish with Claude";
     btn.setAttribute("aria-label", "Polish message with Claude");
     btn.textContent = "✨"; // ✨
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      // In a channel composer the button sits in the Post command bar; without
+      // this a bubbled click reaches Teams' post handler and sends the message.
+      e.preventDefault();
+      e.stopPropagation();
       this.#rewrite(btn, "").catch((err) =>
         console.error(`${LOG_PREFIX} Polish failed: ${err.message}`),
       );

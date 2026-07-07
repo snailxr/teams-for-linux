@@ -3,7 +3,20 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
-const { appendSafeHtml, htmlToPlain } = require('../../app/browser/tools/_composeReplace');
+const {
+  appendSafeHtml,
+  htmlToPlain,
+  isSendOrPostButton,
+} = require('../../app/browser/tools/_composeReplace');
+
+// Minimal stand-in for a button: only the accessors isSendOrPostButton reads.
+function fakeButton({ aria, title, text } = {}) {
+  return {
+    getAttribute: (n) => (n === 'aria-label' ? aria ?? null : null),
+    title: title || '',
+    textContent: text || '',
+  };
+}
 
 // Minimal stand-in for the DOM: appendSafeHtml builds nodes via
 // parent.ownerDocument, so a fake document with createElement/createTextNode
@@ -106,6 +119,32 @@ describe('appendSafeHtml', () => {
   it('survives an unmatched closing tag without crashing or mis-nesting', () => {
     const { out } = render('</li>hello<b>x</b>');
     assert.strictEqual(out, 'hello<b>x</b>');
+  });
+});
+
+describe('isSendOrPostButton', () => {
+  it('matches the chat Send button (aria-label)', () => {
+    assert.ok(isSendOrPostButton(fakeButton({ aria: 'Send' })));
+  });
+
+  it('matches the channel Post button by visible text', () => {
+    assert.ok(isSendOrPostButton(fakeButton({ text: 'Post' })));
+  });
+
+  it('does NOT match a "Posts" nav tab (\\b guards the suffix)', () => {
+    assert.ok(!isSendOrPostButton(fakeButton({ aria: 'Posts' })));
+    assert.ok(!isSendOrPostButton(fakeButton({ text: 'Posts' })));
+  });
+
+  it('does NOT match other toolbar buttons', () => {
+    assert.ok(!isSendOrPostButton(fakeButton({ aria: 'Bold' })));
+    assert.ok(!isSendOrPostButton(fakeButton({ aria: 'Attach file' })));
+    assert.ok(!isSendOrPostButton(fakeButton({ text: 'Repost' })));
+  });
+
+  it('prefers aria-label over text and handles missing element', () => {
+    assert.ok(isSendOrPostButton(fakeButton({ aria: 'Post message', text: 'x' })));
+    assert.ok(!isSendOrPostButton(null));
   });
 });
 

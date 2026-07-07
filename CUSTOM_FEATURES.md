@@ -72,3 +72,9 @@ For both, any text already in the compose box is sent as a steering prompt
   content, per the project's PII logging rules.
 - Toolbar buttons are re-inserted by body-wide `MutationObserver`s because
   Teams rebuilds the compose toolbar on navigation.
+- Both anchor their buttons before the compose action button via
+  `findSendAnchor()` in `_composeReplace.js`: it tries the document-wide
+  `SEND_SELECTORS` first (chat "Send"), then falls back to a Send/**Post**
+  button scoped to the compose box's own ancestors — channel composers label
+  the button "Post", which matches none of the chat selectors. Scoping the
+  fallback to the composer subtree keeps it from grabbing the "Posts" nav tab.
